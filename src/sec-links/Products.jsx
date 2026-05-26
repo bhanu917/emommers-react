@@ -8,9 +8,14 @@ export default function Products({ data }) {
     // Load cart from API on mount
     useEffect(() => {
         const loadCart = async () => {
-            const res = await fetch(`http://localhost:3006/Users/${userId}`);
-            const user = await res.json();
-            sival(user.cartprod || {});
+            try {
+                const res = await fetch(`http://localhost:3006/Users/${userId}`);
+                if (!res.ok) throw new Error("Failed to load cart");
+                const user = await res.json();
+                sival(user.cartprod || {});
+            } catch (err) {
+                console.error("Error loading cart:", err);
+            }
         };
         if (userId) loadCart();
     }, [userId]);
@@ -22,42 +27,65 @@ export default function Products({ data }) {
         sival(newCart);
         localStorage.setItem("userCart", JSON.stringify(newCart));
 
-        await fetch(`http://localhost:3006/Users/${userId}`, {
-            method: "PATCH",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ cartprod: newCart }),
-        });
+        try {
+            await fetch(`http://localhost:3006/Users/${userId}`, {
+                method: "PATCH",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ cartprod: newCart }),
+            });
+        } catch (err) {
+            console.error("Failed to update cart:", err);
+        }
     };
 
-    // Decrement item
+    // Decrement item (remove if hits 0)
     const decid = async (id) => {
-        const newVal = Math.max((ival[id] || 0) - 1, 0);
-        const newCart = { ...ival, [id]: newVal };
+        const currentVal = ival[id] || 0;
+        let newCart;
+
+        if (currentVal <= 1) {
+            const { [id]: _, ...rest } = ival; // remove item entirely
+            newCart = rest;
+        } else {
+            newCart = { ...ival, [id]: currentVal - 1 };
+        }
+
         sival(newCart);
         localStorage.setItem("userCart", JSON.stringify(newCart));
 
-        await fetch(`http://localhost:3006/Users/${userId}`, {
-            method: "PATCH",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ cartprod: newCart }),
-        });
+        try {
+            await fetch(`http://localhost:3006/Users/${userId}`, {
+                method: "PATCH",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ cartprod: newCart }),
+            });
+        } catch (err) {
+            console.error("Failed to update cart:", err);
+        }
     };
+
+    // Dynamic categories from data
+    const categories = ["all", ...new Set(data.map((item) => item.category))];
 
     return (
         <div className="container">
             {/* Category filter buttons */}
             <ul className="d-flex flex-wrap gap-3 justify-content-evenly mt-5" type="none">
-                <li className="btn btn-secondary" onClick={() => scat("all")}>All</li>
-                <li className="btn btn-secondary" onClick={() => scat("men's clothing")}>Men's Clothing</li>
-                <li className="btn btn-secondary" onClick={() => scat("women's clothing")}>Women's Clothing</li>
-                <li className="btn btn-secondary" onClick={() => scat("jewelery")}>Jewelery</li>
-                <li className="btn btn-secondary" onClick={() => scat("electronics")}>Electronics</li>
+                {categories.map((c) => (
+                    <li
+                        key={c}
+                        className={`btn ${cat === c ? "btn-primary" : "btn-secondary"}`}
+                        onClick={() => scat(c)}
+                    >
+                        {c.charAt(0).toUpperCase() + c.slice(1)}
+                    </li>
+                ))}
             </ul>
             <hr />
 
             {/* Product cards */}
             <div className="d-flex flex-wrap gap-4 mt-5">
-                {(cat === "all" ? data : data.filter(item => item.category === cat)).map((item) => (
+                {(cat === "all" ? data : data.filter((item) => item.category === cat)).map((item) => (
                     <div className="card mb-4" key={item.id} style={{ width: "300px" }}>
                         <div className="card-title text-center mt-3">
                             <img src={item.image} width="250" height="300" alt={item.title} />

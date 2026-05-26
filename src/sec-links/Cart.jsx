@@ -27,15 +27,25 @@ export default function Cart({ data }) {
     }
 
     const decid = async (id) => {
-        const newVal = Math.max((cartprod[id] || 0) - 1, 0)
-        const newCart = { ...cartprod, [id]: newVal }
-        setCartprod(newCart)
-        await fetch(`http://localhost:3006/Users/${userId}`, {
-            method: "PATCH",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ cartprod: newCart })
-        })
-    }
+        const currentVal = cartprod[id] || 0;
+        let newCart;
+        if (currentVal <= 1) {
+            const { [id]: _, ...rest } = cartprod;
+            newCart = rest;
+        } else {
+            newCart = { ...cartprod, [id]: currentVal - 1 };
+        }
+        setCartprod(newCart);
+        try {
+            await fetch(`http://localhost:3006/Users/${userId}`, {
+                method: "PATCH",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ cartprod: newCart }),
+            });
+        } catch (err) {
+            console.error("Failed to update cart:", err);
+        }
+    };
 
     const removeItem = async (id) => {
         const newCart = { ...cartprod }

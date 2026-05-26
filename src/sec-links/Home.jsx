@@ -15,41 +15,46 @@ export default function Home({ data }) {
     }, [userId])
 
     const incid = async (id) => {
-        // update local state
-        const newVal = (ival[id] || 0) + 1
+        const newVal = (ival[id] || 0) + 1;
         const newCart = { ...ival, [id]: newVal };
-        localStorage.setItem("userCart", JSON.stringify(newCart));
-        if (newVal === 0) {
-            // remove the product entirely if it hits 0
-            delete newCart[id];
-        } else {
-            // otherwise update with the new quantity
-            newCart[id] = newVal;
-        }
-        sival(newCart)
 
-        // update API
-        await fetch(`http://localhost:3006/Users/${userId}`, {
-            method: "PATCH",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ cartprod: newCart })
-        })
-    }
+        sival(newCart);
+        localStorage.setItem("userCart", JSON.stringify(newCart));
+
+        try {
+            await fetch(`http://localhost:3006/Users/${userId}`, {
+                method: "PATCH",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ cartprod: newCart })
+            });
+        } catch (err) {
+            console.error("Failed to update cart:", err);
+        }
+    };
 
     const decid = async (id) => {
-        // don't go below 0
-        const newVal = Math.max((ival[id] || 0) - 1, 0)
-        const newCart = { ...ival, [id]: newVal }
-        sival(newCart)
-        localStorage.setItem("userCart", JSON.stringify(newCart));
+        const currentVal = ival[id] || 0;
+        if (currentVal <= 1) {
+            const { [id]: _, ...newCart } = ival; // remove item entirely
+            sival(newCart);
+            localStorage.setItem("userCart", JSON.stringify(newCart));
+            await fetch(`http://localhost:3006/Users/${userId}`, {
+                method: "PATCH",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ cartprod: newCart })
+            });
+        } else {
+            const newCart = { ...ival, [id]: currentVal - 1 };
+            sival(newCart);
+            localStorage.setItem("userCart", JSON.stringify(newCart));
+            await fetch(`http://localhost:3006/Users/${userId}`, {
+                method: "PATCH",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ cartprod: newCart })
+            });
+        }
+    };
 
-        // update API
-        await fetch(`http://localhost:3006/Users/${userId}`, {
-            method: "PATCH",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ cartprod: newCart })
-        })
-    }
 
     return (
         <div className="mt-5 container d-flex flex-wrap gap-4 justify-content-between">
